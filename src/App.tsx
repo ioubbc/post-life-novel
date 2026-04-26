@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   BookOpen, Sparkles, ScrollText, Sword, 
   Crown, Cpu, Share2, Download, MessageCircle, 
