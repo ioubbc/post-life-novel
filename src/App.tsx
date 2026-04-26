@@ -261,23 +261,49 @@ export default function PastLifeNovelApp() {
   const handleShare = async () => {
     const shareData = {
       title: storyData?.title,
-      text: `[전생 시뮬레이터] 나의 전생은 '${storyData?.characterClass}'?! 지금 내 평행우주 스토리를 확인해보세요.`,
+      text: `[전생 시뮬레이터] 나의 전생은 '${storyData?.characterClass}'?! 지금 내 평행우주 스토리를 확인해보세요.\n\n제목: ${storyData?.title}\n주인공: ${userInfo.name}\n\n${episodes[0]?.substring(0, 100)}...`,
       url: window.location.href, 
     };
     try {
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
-        alert('소설 링크가 클립보드에 복사되었습니다!');
+        await navigator.clipboard.writeText(`${shareData.text}\n\n보러가기: ${shareData.url}`);
+        alert('소설 내용과 링크가 클립보드에 복사되었습니다!');
       }
     } catch (err) {
       console.log('Error sharing:', err);
     }
   };
 
-  const handleDownloadImage = () => {
-    alert("인스타그램 스토리용 캐릭터 카드가 저장되었습니다!");
+  const handleDownloadText = () => {
+    if (!storyData) return;
+    
+    let content = `[전생 시뮬레이터 - CHRONICLE]\n\n`;
+    content += `제목: ${storyData.title}\n`;
+    content += `장르: ${storyData.genre}\n`;
+    content += `주인공: ${userInfo.name} (${storyData.characterClass})\n`;
+    content += `세계관: ${eras.find(e => e.id === userInfo.era)?.title || '랜덤'} - ${userInfo.subEra}\n`;
+    content += `해시태그: ${storyData.hashtags.join(' ')}\n\n`;
+    content += `--- [캐릭터 능력치] ---\n`;
+    storyData.stats.forEach(stat => {
+      content += `- ${stat.name}: ${stat.value}\n`;
+    });
+    content += `\n=================================\n\n`;
+    
+    episodes.forEach((ep, idx) => {
+      content += `[제 ${idx + 1} 화]\n\n${ep}\n\n=================================\n\n`;
+    });
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${storyData.title}_${userInfo.name}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleReset = () => {
@@ -621,11 +647,11 @@ export default function PastLifeNovelApp() {
           <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800 p-4 px-6 animate-in slide-in-from-bottom-full duration-500 z-40">
             <div className="flex gap-3">
               <button 
-                onClick={handleDownloadImage}
+                onClick={handleDownloadText}
                 className="flex flex-col items-center justify-center gap-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl p-3 px-4 transition-colors border border-zinc-700 flex-1"
               >
                 <Download className="w-5 h-5 text-zinc-300" />
-                <span className="text-[10px] font-bold text-zinc-300">스토리 박제</span>
+                <span className="text-[10px] font-bold text-zinc-300">소설 텍스트 저장</span>
               </button>
               
               <button 
@@ -633,7 +659,7 @@ export default function PastLifeNovelApp() {
                 className="flex items-center justify-center gap-2 bg-white hover:bg-zinc-200 text-zinc-950 rounded-xl p-3 px-6 transition-colors font-black shadow-[0_0_15px_rgba(255,255,255,0.2)] flex-[2]"
               >
                 <Share2 className="w-5 h-5" />
-                <span>웹소설 데뷔 공유하기</span>
+                <span>소설 내용 공유하기</span>
               </button>
             </div>
           </div>
