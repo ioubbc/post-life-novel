@@ -5,27 +5,46 @@ import {
   Send, User, RefreshCw, Zap, Star, Loader2, Building2, Hash
 } from 'lucide-react';
 
+// ✨ 신규: TypeScript 환경 에러 방지를 위한 데이터 설계도(Interface) 정의
+interface Stat {
+  name: string;
+  value: number;
+}
+
+interface StoryData {
+  title: string;
+  genre: string;
+  stats: Stat[];
+  characterClass: string;
+  content: string;
+  hashtags: string[];
+}
+
+interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+}
+
 export default function PastLifeNovelApp() {
   const [step, setStep] = useState('input'); // 'input', 'loading', 'story'
-  // ✨ 수정됨: userInfo 상태에 subEra(세부 장르)와 keywords(자유 키워드) 추가
   const [userInfo, setUserInfo] = useState({ name: '', gender: 'F', era: 'fantasy', subEra: '아카데미', keywords: '' });
-  const [storyData, setStoryData] = useState(null);
   
-  // ✨ 신규: 소설 에피소드를 누적해서 저장하는 배열
-  const [episodes, setEpisodes] = useState([]);
+  // ✨ 수정됨: 상태 값에 명확한 타입(Type)을 지정하여 Vercel 빌드 에러 해결
+  const [storyData, setStoryData] = useState<StoryData | null>(null);
+  const [episodes, setEpisodes] = useState<string[]>([]);
   const [isNextEpLoading, setIsNextEpLoading] = useState(false);
-  const storyEndRef = useRef(null);
+  const storyEndRef = useRef<HTMLDivElement>(null);
   
   // 채팅 관련 상태
   const [chatInput, setChatInput] = useState('');
-  const [chatHistory, setChatHistory] = useState([]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const chatEndRef = useRef(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const [loadingProgress, setLoadingProgress] = useState(0);
 
   // Gemini API Key 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY; 
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ""; 
 
   // 자동 스크롤 (채팅 및 소설 추가 시)
   useEffect(() => {
@@ -39,7 +58,7 @@ export default function PastLifeNovelApp() {
   }, [episodes]);
 
   // 지수 백오프 API 호출
-  const fetchWithBackoff = async (url, options, retries = 5, delay = 1000) => {
+  const fetchWithBackoff = async (url: string, options: RequestInit, retries = 5, delay = 1000): Promise<any> => {
     try {
       const res = await fetch(url, options);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -53,7 +72,7 @@ export default function PastLifeNovelApp() {
     }
   };
 
-  // ✨ 수정됨: 웹소설 트렌드에 맞춘 세계관 및 세부 카테고리 구성
+  // 세계관 및 세부 카테고리 구성
   const eras = [
     { id: 'fantasy', icon: <Crown className="w-5 h-5"/>, title: '중세 판타지', desc: '마법, 귀족, 드래곤',
       subEras: ['아카데미', '영지 경영', '로맨스 판타지', '마왕 토벌'] },
@@ -88,7 +107,6 @@ export default function PastLifeNovelApp() {
     const subEraContext = userInfo.subEra || 'AI 랜덤 전개';
     const keywordContext = userInfo.keywords.trim() ? userInfo.keywords : 'AI 추천 트렌디 키워드 반영 (먼치킨, 사이다 등)';
 
-    // ✨ 수정됨: 프롬프트에 세부 장르와 사용자 키워드 반영
     const prompt = `당신은 천재적이고 트렌디한 웹소설 작가입니다.
     다음 사용자를 주인공으로 한 '전생' 혹은 '평행우주' 웹소설의 1화 도입부를 작성해주세요.
     
@@ -131,9 +149,9 @@ export default function PastLifeNovelApp() {
       );
       
       const resultText = response.candidates[0].content.parts[0].text;
-      const parsedData = JSON.parse(resultText);
+      const parsedData: StoryData = JSON.parse(resultText);
       setStoryData(parsedData);
-      setEpisodes([parsedData.content]); // 1화를 배열에 저장
+      setEpisodes([parsedData.content]); 
 
     } catch (error) {
       console.error("Story generation failed:", error);
@@ -156,13 +174,11 @@ export default function PastLifeNovelApp() {
     }
   };
 
-  // ✨ 신규: 소설 다음 화(이어쓰기) 생성 로직
+  // 2. 소설 다음 화(이어쓰기) 생성 로직
   const handleGenerateNextEpisode = async () => {
-    if (isNextEpLoading) return;
+    if (isNextEpLoading || !storyData) return;
     setIsNextEpLoading(true);
 
-    // AI에게 문맥을 전달하기 위해 이전 내용들을 요약/합성
-    // (토큰 절약을 위해 최근 2~3개 에피소드만 전달하는 것이 효율적입니다)
     const recentContext = episodes.slice(-2).join('\n\n---\n\n');
     const nextEpisodeNumber = episodes.length + 1;
 
@@ -201,17 +217,16 @@ export default function PastLifeNovelApp() {
     }
   };
 
-  // 3. 캐릭터 챗봇 로직 (전생의 나와 대화하기)
+  // 3. 캐릭터 챗봇 로직
   const handleSendChat = async () => {
     if (!chatInput.trim() || isChatLoading || !storyData) return;
 
     const userMessage = chatInput.trim();
-    const newHistory = [...chatHistory, { role: 'user', text: userMessage }];
+    const newHistory: ChatMessage[] = [...chatHistory, { role: 'user', text: userMessage }];
     setChatHistory(newHistory);
     setChatInput('');
     setIsChatLoading(true);
 
-    // 채팅 시에도 현재까지의 소설 진행 상황을 알려주면 더 좋습니다.
     const currentStatus = episodes[episodes.length - 1].substring(0, 200) + "...";
 
     const prompt = `당신은 방금 생성된 웹소설 '${storyData.title}'의 주인공인 '${userInfo.name}'입니다. 직업/이명은 '${storyData.characterClass}'입니다.
@@ -334,7 +349,6 @@ export default function PastLifeNovelApp() {
                 </div>
               </div>
 
-              {/* ✨ 수정됨: 세계관 및 세부 장르 선택 UI 고도화 */}
               <div className="space-y-3">
                 <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase tracking-wider">메인 세계관 선택</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -364,7 +378,6 @@ export default function PastLifeNovelApp() {
                 </div>
               </div>
 
-              {/* 세부 장르 칩(Chip) 선택 영역 */}
               {userInfo.era !== 'random' && (
                 <div className="space-y-3 animate-in fade-in">
                   <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase tracking-wider">세부 장르 (Sub-Genre)</label>
@@ -386,7 +399,6 @@ export default function PastLifeNovelApp() {
                 </div>
               )}
 
-              {/* 자유 키워드 입력 영역 */}
               <div className="space-y-3">
                 <label className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 mb-1.5 uppercase tracking-wider">
                   <Hash className="w-3.5 h-3.5" />
